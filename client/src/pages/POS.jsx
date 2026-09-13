@@ -1,8 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
+import {
+  HiOutlineShoppingCart,
+  HiOutlineSearch,
+  HiOutlineTrash,
+  HiOutlineDocumentText,
+  HiOutlineExclamation,
+  HiOutlineCash,
+  HiOutlineCreditCard,
+  HiOutlineDeviceMobile,
+  HiOutlineCheckCircle,
+} from 'react-icons/hi';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 const TAX = 0.08;
+
+const paymentIcons = {
+  cash: HiOutlineCash,
+  card: HiOutlineCreditCard,
+  mobile: HiOutlineDeviceMobile,
+};
 
 export default function POS() {
   const { user } = useAuth();
@@ -73,7 +90,7 @@ export default function POS() {
       setDiscount(0);
       setRx({ patientName: '', doctorName: '', notes: '' });
       if (data.data.status === 'pending_approval') {
-        setMessage(`Sale ${data.data.invoiceNumber} is waiting for pharmacist approval. Stock is not deducted yet.`);
+        setMessage(`Sale ${data.data.invoiceNumber} is waiting for pharmacist approval.`);
       } else {
         setMessage(`Sale ${data.data.invoiceNumber} completed. Total $${data.data.total.toFixed(2)}`);
       }
@@ -94,124 +111,195 @@ export default function POS() {
   }, [user.role, needsRx]);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-5">
-      <div className="space-y-4 lg:col-span-3">
-        <h2 className="text-2xl font-semibold">Point of sale</h2>
-        <div className="card relative">
-          <label className="label">Search medicines</label>
-          <input className="input text-lg" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or generic…" />
-          {results.length > 0 && (
-            <ul className="absolute z-10 mt-1 max-h-64 w-[calc(100%-2.5rem)] overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg">
-              {results.map((m) => (
-                <li key={m._id}>
-                  <button
-                    className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-slate-50"
-                    onClick={() => add(m)}
-                    disabled={m.stock < 1}
-                  >
-                    <span>
-                      <span className="font-medium">{m.name}</span>
-                      <span className="ml-2 text-xs text-slate-400">{m.genericName}</span>
-                      {m.requiresPrescription && (
-                        <span className="ml-2 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] text-violet-700">Rx</span>
-                      )}
-                    </span>
-                    <span className="text-sm text-slate-500">
-                      ${m.price.toFixed(2)} · stock {m.stock}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <div className="card overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="text-slate-500">
-              <tr>
-                <th className="py-2">Item</th>
-                <th>Qty</th>
-                <th>Price</th>
-                <th>Line</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {cart.map((i) => (
-                <tr key={i.medicineId} className="border-t border-slate-100">
-                  <td className="py-2">
-                    {i.name} {i.requiresPrescription && <span className="text-violet-600">Rx</span>}
-                  </td>
-                  <td>
-                    <input
-                      className="input w-20"
-                      type="number"
-                      min="1"
-                      max={i.stock}
-                      value={i.qty}
-                      onChange={(e) =>
-                        setCart((prev) =>
-                          prev.map((x) => (x.medicineId === i.medicineId ? { ...x, qty: Number(e.target.value) } : x))
-                        )
-                      }
-                    />
-                  </td>
-                  <td>${i.price.toFixed(2)}</td>
-                  <td>${(i.price * i.qty).toFixed(2)}</td>
-                  <td>
-                    <button className="text-rose-600" onClick={() => setCart((prev) => prev.filter((x) => x.medicineId !== i.medicineId))}>
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {cart.length === 0 && (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-slate-400">
-                    Cart is empty — search and tap a medicine
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+    <div className="animate-fade-in">
+      <div className="page-header">
+        <h2 className="page-title flex items-center gap-2.5">
+          <HiOutlineShoppingCart className="h-7 w-7 text-brand-500" />
+          Point of Sale
+        </h2>
+        <p className="page-subtitle">Search, add to cart, and complete sales.</p>
       </div>
 
-      <div className="card space-y-3 lg:col-span-2">
-        <h3 className="font-semibold">Checkout</h3>
-        <p className="text-xs text-slate-500">{hint}</p>
-        {needsRx && (
-          <div className="space-y-2 rounded-xl bg-violet-50 p-3">
-            <p className="text-sm font-medium text-violet-800">Prescription</p>
-            <input className="input" placeholder="Patient name" value={rx.patientName} onChange={(e) => setRx({ ...rx, patientName: e.target.value })} />
-            <input className="input" placeholder="Doctor name" value={rx.doctorName} onChange={(e) => setRx({ ...rx, doctorName: e.target.value })} />
-            <input className="input" placeholder="Notes (optional)" value={rx.notes} onChange={(e) => setRx({ ...rx, notes: e.target.value })} />
+      <div className="mt-6 grid gap-6 lg:grid-cols-5">
+        {/* Left: Search + Cart */}
+        <div className="space-y-4 lg:col-span-3">
+          {/* Search */}
+          <div className="card relative">
+            <label className="label">Search medicines</label>
+            <div className="relative">
+              <HiOutlineSearch className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+              <input
+                className="input py-3 pl-11 text-base"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Type medicine name or generic…"
+              />
+            </div>
+            {results.length > 0 && (
+              <ul className="absolute left-6 right-6 z-10 mt-2 max-h-72 overflow-auto rounded-xl border border-slate-200/80 bg-white shadow-xl">
+                {results.map((m) => (
+                  <li key={m._id}>
+                    <button
+                      className="flex w-full items-center justify-between px-4 py-3.5 text-left transition-colors hover:bg-slate-50 disabled:opacity-40"
+                      onClick={() => add(m)}
+                      disabled={m.stock < 1}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="font-medium text-slate-800">{m.name}</span>
+                        <span className="text-xs text-slate-400">{m.genericName}</span>
+                        {m.requiresPrescription && <span className="badge-violet">Rx</span>}
+                      </span>
+                      <span className="text-sm">
+                        <span className="font-semibold text-slate-900">${m.price.toFixed(2)}</span>
+                        <span className="ml-2 text-xs text-slate-400">stock {m.stock}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-        )}
-        <label className="label">Discount ($)</label>
-        <input className="input" type="number" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} />
-        <label className="label">Payment</label>
-        <select className="input" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-          <option value="cash">Cash</option>
-          <option value="card">Card</option>
-          <option value="mobile">Mobile</option>
-        </select>
-        <div className="space-y-1 text-sm">
-          <div className="flex justify-between"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
-          <div className="flex justify-between"><span>Discount</span><span>${disc.toFixed(2)}</span></div>
-          <div className="flex justify-between"><span>Tax (8%)</span><span>${tax.toFixed(2)}</span></div>
-          <div className="flex justify-between text-lg font-semibold"><span>Total</span><span>${total.toFixed(2)}</span></div>
+
+          {/* Cart table */}
+          <div className="card overflow-x-auto">
+            <table className="table-modern">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>Price</th>
+                  <th>Line total</th>
+                  <th className="text-right">Remove</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cart.map((i) => (
+                  <tr key={i.medicineId}>
+                    <td>
+                      <span className="font-medium text-slate-800">{i.name}</span>
+                      {i.requiresPrescription && <span className="ml-1.5 badge-violet">Rx</span>}
+                    </td>
+                    <td>
+                      <input
+                        className="input w-20 text-center"
+                        type="number"
+                        min="1"
+                        max={i.stock}
+                        value={i.qty}
+                        onChange={(e) =>
+                          setCart((prev) =>
+                            prev.map((x) => (x.medicineId === i.medicineId ? { ...x, qty: Number(e.target.value) } : x))
+                          )
+                        }
+                      />
+                    </td>
+                    <td className="text-slate-600">${i.price.toFixed(2)}</td>
+                    <td className="font-semibold">${(i.price * i.qty).toFixed(2)}</td>
+                    <td className="text-right">
+                      <button
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                        onClick={() => setCart((prev) => prev.filter((x) => x.medicineId !== i.medicineId))}
+                      >
+                        <HiOutlineTrash className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {cart.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="py-12 text-center">
+                      <HiOutlineShoppingCart className="mx-auto h-10 w-10 text-slate-200" />
+                      <p className="mt-2 text-sm text-slate-400">Cart is empty — search and add medicines</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-        {error && <p className="text-sm text-rose-600">{error}</p>}
-        {message && <p className="text-sm text-brand-700">{message}</p>}
-        <button className="btn-primary w-full py-3 text-base" disabled={!cart.length} onClick={checkout}>
-          Complete sale
-        </button>
-        {lastSale && lastSale.status === 'completed' && (
-          <button className="btn-secondary w-full" onClick={() => downloadInvoice(lastSale._id)}>
-            Open invoice PDF
+
+        {/* Right: Checkout */}
+        <div className="card space-y-4 lg:col-span-2 lg:sticky lg:top-8 lg:self-start">
+          <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+            <HiOutlineCash className="h-4 w-4 text-brand-500" />
+            Checkout
+          </h3>
+          <p className="text-xs text-slate-500 leading-relaxed">{hint}</p>
+
+          {/* Prescription fields */}
+          {needsRx && (
+            <div className="space-y-2.5 rounded-xl bg-violet-50/80 p-4 ring-1 ring-violet-100">
+              <p className="text-sm font-semibold text-violet-800 flex items-center gap-1.5">
+                <HiOutlineDocumentText className="h-4 w-4" />
+                Prescription Required
+              </p>
+              <input className="input bg-white" placeholder="Patient name" value={rx.patientName} onChange={(e) => setRx({ ...rx, patientName: e.target.value })} />
+              <input className="input bg-white" placeholder="Doctor name" value={rx.doctorName} onChange={(e) => setRx({ ...rx, doctorName: e.target.value })} />
+              <input className="input bg-white" placeholder="Notes (optional)" value={rx.notes} onChange={(e) => setRx({ ...rx, notes: e.target.value })} />
+            </div>
+          )}
+
+          <div>
+            <label className="label">Discount ($)</label>
+            <input className="input" type="number" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} />
+          </div>
+
+          {/* Payment method */}
+          <div>
+            <label className="label">Payment method</label>
+            <div className="grid grid-cols-3 gap-2">
+              {['cash', 'card', 'mobile'].map((m) => {
+                const Icon = paymentIcons[m];
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    className={`flex flex-col items-center gap-1.5 rounded-xl py-3 text-xs font-semibold capitalize transition-all ${
+                      paymentMethod === m
+                        ? 'bg-brand-50 text-brand-700 ring-2 ring-brand-500'
+                        : 'bg-slate-50 text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100'
+                    }`}
+                    onClick={() => setPaymentMethod(m)}
+                  >
+                    <Icon className="h-5 w-5" />
+                    {m}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Totals */}
+          <div className="space-y-2 rounded-xl bg-slate-50 p-4 text-sm">
+            <div className="flex justify-between text-slate-500"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
+            {disc > 0 && <div className="flex justify-between text-emerald-600"><span>Discount</span><span>-${disc.toFixed(2)}</span></div>}
+            <div className="flex justify-between text-slate-500"><span>Tax (8%)</span><span>${tax.toFixed(2)}</span></div>
+            <div className="flex justify-between border-t border-slate-200 pt-2 text-lg font-bold text-slate-900"><span>Total</span><span>${total.toFixed(2)}</span></div>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2.5 text-sm text-rose-700 ring-1 ring-rose-100">
+              <HiOutlineExclamation className="h-4 w-4 shrink-0" />
+              {error}
+            </div>
+          )}
+          {message && (
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700 ring-1 ring-emerald-100">
+              <HiOutlineCheckCircle className="h-4 w-4 shrink-0" />
+              {message}
+            </div>
+          )}
+
+          <button className="btn-primary w-full py-3.5 text-base" disabled={!cart.length} onClick={checkout}>
+            Complete sale — ${total.toFixed(2)}
           </button>
-        )}
+          {lastSale && lastSale.status === 'completed' && (
+            <button className="btn-secondary w-full" onClick={() => downloadInvoice(lastSale._id)}>
+              <HiOutlineDocumentText className="h-4 w-4" />
+              Open invoice PDF
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

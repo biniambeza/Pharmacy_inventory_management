@@ -1,6 +1,32 @@
 import { useEffect, useState } from 'react';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  Bar, BarChart, CartesianGrid, Cell, Line, LineChart, PieChart, Pie,
+  ResponsiveContainer, Tooltip, XAxis, YAxis, Legend,
+} from 'recharts';
+import {
+  HiOutlineChartBar,
+  HiOutlineDocumentDownload,
+  HiOutlineClock,
+  HiOutlineExclamationCircle,
+  HiOutlineStar,
+} from 'react-icons/hi';
 import api from '../api/client';
+
+const CHART_COLORS = ['#2d9270', '#0ea5e9', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#6366f1'];
+
+const ChartTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl bg-slate-900 px-3.5 py-2.5 text-xs shadow-xl">
+      <p className="font-medium text-slate-300">{label}</p>
+      {payload.map((p, i) => (
+        <p key={i} className="mt-0.5 font-semibold text-white">
+          {p.name}: {typeof p.value === 'number' ? `$${p.value.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : p.value}
+        </p>
+      ))}
+    </div>
+  );
+};
 
 export default function Reports() {
   const [range, setRange] = useState('monthly');
@@ -38,86 +64,252 @@ export default function Reports() {
     a.click();
   };
 
+  const bestSellerPie = best.slice(0, 6).map((b, i) => ({
+    name: b.name.length > 15 ? b.name.slice(0, 15) + '…' : b.name,
+    value: b.revenue,
+  }));
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-semibold">Reports</h2>
-        <div className="flex gap-2">
-          {['daily', 'weekly', 'monthly'].map((r) => (
-            <button key={r} className={range === r ? 'btn-primary capitalize' : 'btn-secondary capitalize'} onClick={() => setRange(r)}>
-              {r}
-            </button>
-          ))}
-          <button className="btn-secondary" onClick={() => openExport('csv')}>
+    <div className="space-y-8 animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="page-header mb-0">
+          <h2 className="page-title flex items-center gap-2.5">
+            <HiOutlineChartBar className="h-7 w-7 text-brand-500" />
+            Reports & Analytics
+          </h2>
+          <p className="page-subtitle">Analyze performance and track pharmacy operations.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Range pills */}
+          <div className="flex rounded-xl bg-slate-100 p-1">
+            {['daily', 'weekly', 'monthly'].map((r) => (
+              <button
+                key={r}
+                className={`rounded-lg px-3.5 py-2 text-xs font-semibold capitalize transition-all duration-200 ${
+                  range === r
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+                onClick={() => setRange(r)}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+          {/* Export buttons */}
+          <button className="btn-secondary text-xs" onClick={() => openExport('csv')}>
+            <HiOutlineDocumentDownload className="h-4 w-4" />
             CSV
           </button>
-          <button className="btn-secondary" onClick={() => openExport('pdf')}>
+          <button className="btn-secondary text-xs" onClick={() => openExport('pdf')}>
+            <HiOutlineDocumentDownload className="h-4 w-4" />
             PDF
           </button>
         </div>
       </div>
-      {error && <p className="text-rose-600">{error}</p>}
+
+      {error && (
+        <div className="flex items-center gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-100">
+          <HiOutlineExclamationCircle className="h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      )}
+
       {summary && (
         <>
-          <div className="grid gap-4 sm:grid-cols-2">
+          {/* Summary cards */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="card">
-              <p className="text-xs uppercase text-slate-500">Revenue</p>
-              <p className="text-2xl font-semibold">${summary.totals.revenue.toFixed(2)}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Revenue</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900">${summary.totals.revenue.toFixed(2)}</p>
+              <p className="mt-1 text-xs text-slate-400">Completed {range} sales</p>
             </div>
             <div className="card">
-              <p className="text-xs uppercase text-slate-500">Completed sales</p>
-              <p className="text-2xl font-semibold">{summary.totals.count}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Completed Sales</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900">{summary.totals.count}</p>
+              <p className="mt-1 text-xs text-slate-400">Transactions processed</p>
+            </div>
+            <div className="card">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Avg. per Sale</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900">
+                ${summary.totals.count > 0 ? (summary.totals.revenue / summary.totals.count).toFixed(2) : '0.00'}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">Average transaction value</p>
+            </div>
+            <div className="card">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Expiry Alerts</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900">
+                {expiry.expired.length + expiry.nearExpiry.length}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">{expiry.expired.length} expired · {expiry.nearExpiry.length} near</p>
             </div>
           </div>
-          <div className="card h-72">
-            <h3 className="mb-3 font-semibold">Sales by day</h3>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={summary.data.map((d) => ({ day: d._id.slice(5), revenue: d.revenue }))}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="revenue" fill="#059669" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+
+          {/* Charts row: Revenue bar chart + Revenue trend line */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="card">
+              <div className="mb-5">
+                <h3 className="font-semibold text-slate-900">Revenue by Day</h3>
+                <p className="text-xs text-slate-400">Daily sales performance ({range})</p>
+              </div>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={summary.data.map((d) => ({ day: d._id.slice(5), revenue: d.revenue, count: d.count }))}>
+                    <defs>
+                      <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#2d9270" />
+                        <stop offset="100%" stopColor="#059669" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={(v) => `$${v}`} />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Bar dataKey="revenue" name="Revenue" fill="url(#barGrad)" radius={[6, 6, 0, 0]} maxBarSize={32} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="mb-5">
+                <h3 className="font-semibold text-slate-900">Sales Trend</h3>
+                <p className="text-xs text-slate-400">Transaction count per day</p>
+              </div>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={summary.data.map((d) => ({ day: d._id.slice(5), count: d.count, revenue: d.revenue }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Line type="monotone" dataKey="count" name="Sales count" stroke="#0ea5e9" strokeWidth={2.5} dot={{ r: 4, fill: '#0ea5e9', strokeWidth: 2, stroke: '#fff' }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
         </>
       )}
-      <div className="grid gap-4 lg:grid-cols-2">
+
+      {/* Row: Best sellers list + Revenue pie */}
+      <div className="grid gap-6 lg:grid-cols-2">
         <div className="card">
-          <h3 className="mb-3 font-semibold">Best sellers</h3>
-          <ul className="space-y-2 text-sm">
-            {best.map((b) => (
-              <li key={b.medicineId} className="flex justify-between border-b border-slate-100 pb-2">
-                <span>{b.name}</span>
-                <span className="text-slate-500">
-                  {b.qty} sold · ${b.revenue.toFixed(2)}
-                </span>
-              </li>
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <HiOutlineStar className="h-4 w-4 text-amber-500" />
+              <h3 className="font-semibold text-slate-900">Best Sellers</h3>
+            </div>
+            <span className="badge-slate">{range}</span>
+          </div>
+          <div className="space-y-2">
+            {best.map((b, i) => (
+              <div
+                key={b.medicineId}
+                className="flex items-center justify-between rounded-xl px-3.5 py-3 transition-colors hover:bg-slate-50"
+              >
+                <div className="flex items-center gap-3">
+                  <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold text-white`} style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}>
+                    {i + 1}
+                  </span>
+                  <span className="text-sm font-medium text-slate-800">{b.name}</span>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-slate-900">${b.revenue.toFixed(2)}</p>
+                  <p className="text-[11px] text-slate-400">{b.qty} units sold</p>
+                </div>
+              </div>
             ))}
-            {best.length === 0 && <li className="text-slate-400">No sales in this range</li>}
-          </ul>
+            {best.length === 0 && (
+              <p className="py-6 text-center text-sm text-slate-400">No sales in this range</p>
+            )}
+          </div>
         </div>
+
         <div className="card">
-          <h3 className="mb-3 font-semibold">Expired / near expiry</h3>
-          <p className="mb-2 text-xs uppercase text-rose-600">Expired</p>
-          <ul className="mb-4 space-y-1 text-sm">
+          <div className="mb-5">
+            <h3 className="font-semibold text-slate-900">Revenue Distribution</h3>
+            <p className="text-xs text-slate-400">Revenue share by top medicines</p>
+          </div>
+          {bestSellerPie.length > 0 ? (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={bestSellerPie}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={50}
+                    outerRadius={85}
+                    paddingAngle={3}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {bestSellerPie.map((_, i) => (
+                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<ChartTooltip />} />
+                  <Legend
+                    verticalAlign="bottom"
+                    iconType="circle"
+                    iconSize={8}
+                    formatter={(value) => <span className="text-xs text-slate-600">{value}</span>}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex h-48 items-center justify-center text-sm text-slate-400">No data</div>
+          )}
+        </div>
+      </div>
+
+      {/* Expiry section */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="card">
+          <div className="mb-4 flex items-center gap-2">
+            <HiOutlineExclamationCircle className="h-4 w-4 text-rose-500" />
+            <h3 className="font-semibold text-slate-900">Expired Batches</h3>
+            {expiry.expired.length > 0 && <span className="badge-rose">{expiry.expired.length}</span>}
+          </div>
+          <div className="space-y-2">
             {expiry.expired.map((b) => (
-              <li key={b._id}>
-                {b.medicineId?.name} · {b.batchNumber} · qty {b.quantity} · {new Date(b.expiryDate).toLocaleDateString()}
-              </li>
+              <div key={b._id} className="flex items-center justify-between rounded-xl bg-rose-50/50 px-3.5 py-2.5 text-sm ring-1 ring-rose-100">
+                <div>
+                  <p className="font-medium text-slate-800">{b.medicineId?.name}</p>
+                  <p className="text-xs text-slate-500">Batch {b.batchNumber} · {b.quantity} units</p>
+                </div>
+                <span className="badge-rose">{new Date(b.expiryDate).toLocaleDateString()}</span>
+              </div>
             ))}
-            {expiry.expired.length === 0 && <li className="text-slate-400">None</li>}
-          </ul>
-          <p className="mb-2 text-xs uppercase text-amber-600">Near expiry</p>
-          <ul className="space-y-1 text-sm">
+            {expiry.expired.length === 0 && (
+              <p className="py-4 text-center text-sm text-slate-400">✨ No expired batches</p>
+            )}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="mb-4 flex items-center gap-2">
+            <HiOutlineClock className="h-4 w-4 text-amber-500" />
+            <h3 className="font-semibold text-slate-900">Near Expiry</h3>
+            {expiry.nearExpiry.length > 0 && <span className="badge-amber">{expiry.nearExpiry.length}</span>}
+          </div>
+          <div className="space-y-2">
             {expiry.nearExpiry.map((b) => (
-              <li key={b._id}>
-                {b.medicineId?.name} · {b.batchNumber} · qty {b.quantity} · {new Date(b.expiryDate).toLocaleDateString()}
-              </li>
+              <div key={b._id} className="flex items-center justify-between rounded-xl bg-amber-50/50 px-3.5 py-2.5 text-sm ring-1 ring-amber-100">
+                <div>
+                  <p className="font-medium text-slate-800">{b.medicineId?.name}</p>
+                  <p className="text-xs text-slate-500">Batch {b.batchNumber} · {b.quantity} units</p>
+                </div>
+                <span className="badge-amber">{new Date(b.expiryDate).toLocaleDateString()}</span>
+              </div>
             ))}
-            {expiry.nearExpiry.length === 0 && <li className="text-slate-400">None</li>}
-          </ul>
+            {expiry.nearExpiry.length === 0 && (
+              <p className="py-4 text-center text-sm text-slate-400">✨ No near-expiry batches</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
