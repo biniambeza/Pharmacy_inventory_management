@@ -1,362 +1,714 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell,
-  PieChart, Pie, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
 import {
   HiOutlineCurrencyDollar,
   HiOutlineCube,
   HiOutlineExclamation,
-  HiOutlineClock,
-  HiOutlineTrendingUp,
-  HiOutlineTrendingDown,
-  HiOutlineBell,
   HiOutlineShoppingCart,
-  HiOutlineChartPie,
+  HiOutlineClipboardList,
+  HiOutlineStar,
+  HiOutlineCheckCircle,
+  HiOutlineUser,
+  HiOutlineDocumentText,
+  HiOutlineTruck,
 } from 'react-icons/hi';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
-const CHART_COLORS = ['#2d9270', '#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0'];
-const PIE_COLORS = ['#2d9270', '#0ea5e9', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899'];
-
-const StatCard = ({ icon: Icon, label, value, hint, color, trend }) => (
-  <div className="card group animate-slide-up">
-    <div className="flex items-start justify-between">
-      <div className={`flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${color} shadow-md`}>
-        <Icon className="h-5 w-5 text-white" />
+/* ── KPI Metric Card (5 in row) ── */
+const MetricCard = ({ icon: Icon, iconBg, iconColor, label, value, trend, trendUp }) => (
+  <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-card hover:shadow-card-hover transition-all">
+    <div className="flex items-center gap-3">
+      <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${iconBg} ${iconColor} shrink-0`}>
+        <Icon className="h-5 w-5" />
       </div>
-      {trend && (
-        <span className={`flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-          trend > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-        }`}>
-          {trend > 0 ? <HiOutlineTrendingUp className="h-3 w-3" /> : <HiOutlineTrendingDown className="h-3 w-3" />}
-          {Math.abs(trend)}%
-        </span>
-      )}
+      <div className="min-w-0 flex-1">
+        <p className="text-[12px] font-semibold text-slate-400 leading-none">{label}</p>
+        <p className="mt-1.5 text-xl font-extrabold text-slate-900 tracking-tight truncate">{value}</p>
+      </div>
     </div>
-    <p className="mt-4 text-[13px] font-medium text-slate-500">{label}</p>
-    <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{value}</p>
-    {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
+    <div className="mt-3 flex items-center gap-1.5 pt-2 border-t border-slate-50 text-[11px] font-medium text-slate-400">
+      <span className={trendUp ? 'text-emerald-600 font-semibold' : 'text-rose-600 font-semibold'}>
+        {trendUp ? '↑' : '↓'} {trend}
+      </span>
+      <span>vs last month</span>
+    </div>
   </div>
 );
 
-const ChartTooltip = ({ active, payload, label }) => {
+/* ── Custom Tooltip for Line Chart ── */
+const RevenueTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl bg-slate-900 px-3.5 py-2.5 text-xs shadow-xl">
-      <p className="font-medium text-slate-300">{label}</p>
-      {payload.map((p, i) => (
-        <p key={i} className="mt-0.5 font-semibold text-white">
-          {p.name}: {typeof p.value === 'number' && p.name.toLowerCase().includes('revenue')
-            ? `$${p.value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-            : p.value}
-        </p>
-      ))}
+    <div className="rounded-xl border border-slate-100 bg-white p-3 text-xs shadow-xl ring-1 ring-slate-900/5">
+      <p className="font-bold text-slate-700">{label}</p>
+      <div className="mt-1.5 space-y-1">
+        {payload.map((p, i) => (
+          <div key={i} className="flex items-center justify-between gap-4">
+            <span className="flex items-center gap-1.5 font-medium" style={{ color: p.color }}>
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
+              {p.name}:
+            </span>
+            <span className="font-bold text-slate-900">
+              ${Number(p.value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
 
+/* ── Time ago helper ── */
+const timeAgo = (dateStr) => {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+};
+
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [alerts, setAlerts] = useState([]);
-  const [bestSellers, setBestSellers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [chartPeriod, setChartPeriod] = useState('30D'); // '7D', '30D', 'quarter'
 
+  // Fetch real data on mount and whenever chartPeriod changes
   useEffect(() => {
-    Promise.all([
-      api.get('/reports/dashboard'),
-      api.get('/reports/alerts'),
-      api.get('/reports/best-sellers', { params: { range: 'monthly' } }),
-    ])
-      .then(([d, a, b]) => {
-        setData(d.data.data);
-        setAlerts(a.data.data);
-        setBestSellers(b.data.data);
-      })
-      .catch((err) => setError(err.response?.data?.message || 'Failed to load dashboard'));
-  }, []);
+    let mounted = true;
+    setLoading(true);
 
-  if (error)
+    Promise.all([
+      api.get('/reports/dashboard', { params: { period: chartPeriod } }),
+      api.get('/reports/alerts'),
+    ])
+      .then(([dashRes, alertsRes]) => {
+        if (!mounted) return;
+        setData(dashRes.data.data);
+        setAlerts(alertsRes.data.data || []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setError(err.response?.data?.message || 'Failed to fetch dashboard data');
+        setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [chartPeriod]);
+
+  // Handle resolving alerts from the task checklist
+  const handleResolveAlert = async (alertId) => {
+    try {
+      await api.put(`/reports/alerts/${alertId}/resolve`);
+      setAlerts((prev) => prev.filter((a) => a._id !== alertId));
+    } catch {
+      // ignore
+    }
+  };
+
+  // Compile real tasks from active alerts + pending approvals
+  const teamTasks = useMemo(() => {
+    const list = [];
+
+    if (data?.pendingRx > 0) {
+      list.push({
+        id: 'pending-rx',
+        title: `Verify & approve ${data.pendingRx} pending prescription sale(s)`,
+        dept: 'Prescriptions',
+        date: 'Today',
+        priority: 'High',
+        done: false,
+        avatar: 'RX',
+        action: () => navigate('/sales'),
+      });
+    }
+
+    if (data?.openPOsCount > 0) {
+      list.push({
+        id: 'pending-po',
+        title: `Receive incoming Purchase Orders (${data.openPOsCount} active)`,
+        dept: 'Procurement',
+        date: 'Today',
+        priority: 'Medium',
+        done: false,
+        avatar: 'PO',
+        action: () => navigate('/purchase-orders'),
+      });
+    }
+
+    alerts.slice(0, 5).forEach((a) => {
+      list.push({
+        id: a._id,
+        isAlert: true,
+        title: a.message,
+        dept: a.type === 'low_stock' ? 'Inventory' : a.type === 'expired' ? 'Quality' : 'Safety',
+        date: new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        priority: a.type === 'expired' ? 'High' : 'Medium',
+        done: a.resolved || false,
+        avatar: a.type === 'low_stock' ? 'LS' : a.type === 'expired' ? 'EX' : 'AL',
+        action: () => handleResolveAlert(a._id),
+      });
+    });
+
+    return list;
+  }, [alerts, data]);
+
+  if (error) {
     return (
       <div className="flex items-center gap-3 rounded-xl bg-rose-50 px-5 py-4 text-sm text-rose-700 ring-1 ring-rose-100">
         <HiOutlineExclamation className="h-5 w-5 shrink-0" />
         {error}
       </div>
     );
+  }
 
-  if (!data)
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <svg className="h-8 w-8 animate-spin text-brand-500" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          <p className="text-sm text-slate-500">Loading dashboard…</p>
-        </div>
-      </div>
-    );
-
+  // Format currency
   const money = (n) =>
-    Number(n || 0).toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+    Number(n || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
 
-  // Build category data from lowStock for pie chart
-  const categoryMap = {};
-  (data.lowStock || []).forEach((m) => {
-    const cat = m.category || 'Uncategorized';
-    categoryMap[cat] = (categoryMap[cat] || 0) + 1;
-  });
-  const categoryData = Object.entries(categoryMap).map(([name, value]) => ({ name, value }));
-
-  // Build best sellers chart data
-  const bestSellerChart = bestSellers.slice(0, 6).map((b) => ({
-    name: b.name.length > 12 ? b.name.slice(0, 12) + '…' : b.name,
-    qty: b.qty,
-    revenue: b.revenue,
-  }));
-
-  // Build stock health data for pie chart
-  const stockHealth = [
-    { name: 'Healthy', value: Math.max(0, (data.stockUnits || 0) - (data.lowStockCount || 0) - (data.expiringCount || 0) - (data.expiredCount || 0)) },
-    { name: 'Low stock', value: data.lowStockCount || 0 },
-    { name: 'Expiring', value: data.expiringCount || 0 },
-    { name: 'Expired', value: data.expiredCount || 0 },
-  ].filter((d) => d.value > 0);
-
-  const HEALTH_COLORS = ['#2d9270', '#f59e0b', '#f97316', '#ef4444'];
+  // Safe fallback arrays from real backend data
+  const lineChartData = data?.chartData || [];
+  const workflowData = data?.workflowStatus || [];
+  const workflowTotal = data?.totalWorkflow || 0;
+  const inventoryData = data?.inventoryOverview || [];
+  const totalInvCount = data?.totalInvCount || 0;
+  const batchesData = data?.batchesOverview || [];
+  const batchesTotal = data?.totalBatches || 0;
+  const topSuppliersList = data?.topSuppliers || [];
+  const recentActivitiesList = data?.recentActivities || [];
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Header */}
-      <div className="page-header">
-        <h2 className="page-title">
-          Welcome back, {user.name.split(' ')[0]} 👋
-        </h2>
-        <p className="page-subtitle">Here's what's happening in your pharmacy today.</p>
+    <div className="space-y-6 animate-fade-in text-slate-800">
+      {/* ── Welcome Bar ── */}
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+            Welcome back, {user?.name?.split(' ')[0] || 'Pharmacist'}!
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">Here's what's happening in your pharmacy today.</p>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => navigate('/pos')}
+            className="btn btn-primary text-xs font-semibold py-2 px-3.5"
+          >
+            <HiOutlineShoppingCart className="h-4 w-4" />
+            <span>New Sale (POS)</span>
+          </button>
+          <button
+            onClick={() => navigate('/purchase-orders')}
+            className="btn btn-secondary text-xs font-semibold py-2 px-3.5"
+          >
+            <HiOutlineClipboardList className="h-4 w-4 text-slate-500" />
+            <span>Order Supplies</span>
+          </button>
+        </div>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
+      {/* ── Top Row: 5 KPI Metric Cards ── */}
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <MetricCard
           icon={HiOutlineCurrencyDollar}
-          label="Today's revenue"
-          value={money(data.todayRevenue)}
-          hint={`${data.todaySalesCount} completed sale${data.todaySalesCount !== 1 ? 's' : ''}`}
-          color="from-emerald-500 to-brand-600"
+          iconBg="bg-emerald-50"
+          iconColor="text-emerald-600"
+          label="Total Revenue"
+          value={money(data?.monthRevenue || data?.todayRevenue || 0)}
+          trend={`${data?.revenueGrowthPct || 0}%`}
+          trendUp={(data?.revenueGrowthPct || 0) >= 0}
         />
-        <StatCard
+        <MetricCard
+          icon={HiOutlineShoppingCart}
+          iconBg="bg-amber-50"
+          iconColor="text-amber-600"
+          label="Total Expenses"
+          value={money(data?.monthExpenses || 0)}
+          trend="Real PO Spend"
+          trendUp={true}
+        />
+        <MetricCard
+          icon={HiOutlineDocumentText}
+          iconBg="bg-blue-50"
+          iconColor="text-blue-600"
+          label="Net Profit"
+          value={money(data?.netProfit || 0)}
+          trend={data?.netProfit >= 0 ? 'Margin Positive' : 'Deficit'}
+          trendUp={data?.netProfit >= 0}
+        />
+        <MetricCard
+          icon={HiOutlineClipboardList}
+          iconBg="bg-purple-50"
+          iconColor="text-purple-600"
+          label="Pending Prescriptions"
+          value={data?.pendingRx || 0}
+          trend={data?.pendingRx > 0 ? 'Needs Review' : 'Up to date'}
+          trendUp={data?.pendingRx === 0}
+        />
+        <MetricCard
           icon={HiOutlineCube}
-          label="Total stock value"
-          value={money(data.stockValue)}
-          hint={`${(data.stockUnits || 0).toLocaleString()} sellable units`}
-          color="from-sky-500 to-blue-600"
-        />
-        <StatCard
-          icon={HiOutlineExclamation}
-          label="Low stock items"
-          value={data.lowStockCount}
-          hint="At or below reorder level"
-          color="from-amber-500 to-orange-500"
-        />
-        <StatCard
-          icon={HiOutlineClock}
-          label="Expiring soon"
-          value={data.expiringCount}
-          hint={`${data.expiredCount} already expired`}
-          color="from-rose-500 to-red-600"
+          iconBg="bg-sky-50"
+          iconColor="text-sky-600"
+          label="Stock Items / Units"
+          value={`${(data?.stockUnits || 0).toLocaleString()} units`}
+          trend={`${data?.totalMedicines || 0} medicines`}
+          trendUp={true}
         />
       </div>
 
-      {/* Row: Revenue chart + Alerts */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Revenue trend */}
-        <div className="card lg:col-span-2">
-          <div className="mb-5 flex items-center justify-between">
+      {/* ── Middle Row 1: Line Chart (Revenue vs Expenses) + Workflow Status Donut ── */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+        {/* Left: Revenue vs Expenses Dual Line Chart */}
+        <div className="card lg:col-span-7 xl:col-span-8 flex flex-col justify-between">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="font-semibold text-slate-900">Revenue Trend</h3>
-              <p className="text-xs text-slate-400">Last 7 days performance</p>
-            </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50">
-              <HiOutlineTrendingUp className="h-4 w-4 text-emerald-600" />
-            </div>
-          </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.trend.map((t) => ({ day: t._id.slice(5), revenue: t.revenue }))}>
-                <defs>
-                  <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2d9270" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="#2d9270" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} tickFormatter={(v) => `$${v}`} />
-                <Tooltip content={<ChartTooltip />} />
-                <Area type="monotone" dataKey="revenue" stroke="#2d9270" strokeWidth={2.5} fill="url(#revenueGradient)" dot={{ r: 4, fill: '#2d9270', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6, fill: '#2d9270', strokeWidth: 2, stroke: '#fff' }} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Alerts panel */}
-        <div className="card">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <HiOutlineBell className="h-4.5 w-4.5 text-amber-500" />
-              <h3 className="font-semibold text-slate-900">Active Alerts</h3>
-            </div>
-            {alerts.length > 0 && (
-              <span className="badge-amber">{alerts.length}</span>
-            )}
-          </div>
-          {data.pendingRx > 0 && (
-            <Link
-              to="/sales"
-              className="mb-3 flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 px-3.5 py-2.5 text-sm font-medium text-amber-800 ring-1 ring-amber-200/50 transition-all hover:shadow-md hover:ring-amber-300"
-            >
-              <HiOutlineShoppingCart className="h-4 w-4 shrink-0" />
-              {data.pendingRx} prescription sale{data.pendingRx !== 1 ? 's' : ''} awaiting approval
-            </Link>
-          )}
-          <ul className="max-h-64 space-y-2 overflow-auto">
-            {alerts.length === 0 && (
-              <li className="flex h-20 items-center justify-center text-sm text-slate-400">
-                ✨ No open alerts
-              </li>
-            )}
-            {alerts.slice(0, 8).map((a) => (
-              <li key={a._id} className="rounded-xl bg-slate-50 px-3.5 py-2.5 text-sm transition-colors hover:bg-slate-100">
-                <span className={`mr-2 inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                  a.type === 'low_stock' ? 'bg-amber-100 text-amber-700' :
-                  a.type === 'expired' ? 'bg-rose-100 text-rose-700' :
-                  'bg-slate-200 text-slate-600'
-                }`}>
-                  {a.type.replace('_', ' ')}
+              <h3 className="text-sm font-bold text-slate-900">Revenue vs Expenses</h3>
+              <div className="mt-1 flex items-center gap-4 text-xs">
+                <span className="flex items-center gap-1.5 text-slate-600 font-medium">
+                  <span className="h-2.5 w-2.5 rounded-full bg-blue-600" />
+                  Revenue
                 </span>
-                {a.message}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      {/* Row: Best Sellers bar chart + Stock Health pie */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Best Sellers */}
-        <div className="card">
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-slate-900">Top Sellers This Month</h3>
-              <p className="text-xs text-slate-400">Medicines sold by quantity</p>
+                <span className="flex items-center gap-1.5 text-slate-600 font-medium">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                  Expenses
+                </span>
+              </div>
             </div>
-            <Link to="/reports" className="text-xs font-medium text-brand-600 hover:text-brand-700">View all →</Link>
+
+            {/* Dropdown filter */}
+            <div className="relative">
+              <select
+                value={chartPeriod}
+                onChange={(e) => setChartPeriod(e.target.value)}
+                className="cursor-pointer rounded-lg border border-slate-200 bg-white py-1 px-2.5 text-xs font-semibold text-slate-700 shadow-card-sm outline-none hover:border-slate-300 transition-colors"
+              >
+                <option value="30D">Last 30 Days</option>
+                <option value="7D">Last 7 Days</option>
+                <option value="quarter">This Quarter</option>
+              </select>
+            </div>
           </div>
-          {bestSellerChart.length > 0 ? (
-            <div className="h-64">
+
+          <div className="h-64 w-full">
+            {lineChartData.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-xs text-slate-400">
+                No transaction data in this period
+              </div>
+            ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={bestSellerChart} layout="vertical" margin={{ left: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                  <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} width={90} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Bar dataKey="qty" name="Qty sold" radius={[0, 6, 6, 0]} maxBarSize={24}>
-                    {bestSellerChart.map((_, i) => (
-                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
+                <LineChart data={lineChartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                    tickFormatter={(v) => (v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`)}
+                  />
+                  <Tooltip content={<RevenueTooltip />} />
+                  <Line
+                    type="monotone"
+                    dataKey="Revenue"
+                    stroke="#2563eb"
+                    strokeWidth={2.5}
+                    dot={{ r: 3, fill: '#2563eb', strokeWidth: 1.5, stroke: '#fff' }}
+                    activeDot={{ r: 5, fill: '#2563eb', strokeWidth: 2, stroke: '#fff' }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="Expenses"
+                    stroke="#f59e0b"
+                    strokeWidth={2.5}
+                    dot={{ r: 3, fill: '#f59e0b', strokeWidth: 1.5, stroke: '#fff' }}
+                    activeDot={{ r: 5, fill: '#f59e0b', strokeWidth: 2, stroke: '#fff' }}
+                  />
+                </LineChart>
               </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="flex h-48 items-center justify-center text-sm text-slate-400">No sales data available</div>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* Stock Health Pie */}
-        <div className="card">
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-slate-900">Stock Health Overview</h3>
-              <p className="text-xs text-slate-400">Inventory condition breakdown</p>
-            </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50">
-              <HiOutlineChartPie className="h-4 w-4 text-sky-600" />
-            </div>
+        {/* Right: Workflow Status Donut Chart */}
+        <div className="card lg:col-span-5 xl:col-span-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900">Workflow Status</h3>
+            <span className="rounded-lg border border-slate-200 bg-white py-1 px-2.5 text-[11px] font-semibold text-slate-600">
+              Live Workflows
+            </span>
           </div>
-          {stockHealth.length > 0 ? (
-            <div className="h-64">
+
+          <div className="my-auto flex items-center justify-between gap-2 py-2">
+            {/* Donut Chart with Center Text */}
+            <div className="relative h-44 w-44 shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={stockHealth}
+                    data={workflowData.length > 0 ? workflowData : [{ name: 'None', value: 1, color: '#f1f5f9' }]}
                     cx="50%"
                     cy="50%"
-                    innerRadius={55}
-                    outerRadius={90}
+                    innerRadius={50}
+                    outerRadius={68}
                     paddingAngle={3}
                     dataKey="value"
-                    stroke="none"
                   >
-                    {stockHealth.map((_, i) => (
-                      <Cell key={i} fill={HEALTH_COLORS[i % HEALTH_COLORS.length]} />
+                    {workflowData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip content={<ChartTooltip />} />
-                  <Legend
-                    verticalAlign="bottom"
-                    iconType="circle"
-                    iconSize={8}
-                    formatter={(value) => <span className="text-xs text-slate-600">{value}</span>}
-                  />
                 </PieChart>
               </ResponsiveContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Total</span>
+                <span className="text-xl font-extrabold text-slate-900">{workflowTotal}</span>
+              </div>
             </div>
-          ) : (
-            <div className="flex h-48 items-center justify-center text-sm text-slate-400">No stock data</div>
-          )}
+
+            {/* Legend List */}
+            <div className="space-y-2 text-xs flex-1 min-w-0 pr-1">
+              {workflowData.map((w) => (
+                <div key={w.name} className="flex items-center justify-between gap-1">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: w.color }} />
+                    <span className="truncate text-slate-600 text-[11px] font-medium">{w.name}</span>
+                  </div>
+                  <div className="text-[11px] font-bold text-slate-800 shrink-0">
+                    {w.value} <span className="font-normal text-slate-400">({w.percent})</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Low-stock table */}
-      {user.role !== 'cashier' && data.lowStock.length > 0 && (
-        <div className="card">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-slate-900">Low-Stock Medicines</h3>
-              <p className="text-xs text-slate-400">{data.lowStock.length} items need reordering</p>
-            </div>
-            <Link to="/inventory" className="text-xs font-medium text-brand-600 hover:text-brand-700">
-              Manage inventory →
-            </Link>
+      {/* ── Middle Row 2: 3 Cards (Inventory Overview, Pending Procurement, Batches Overview) ── */}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {/* Card 1: Inventory Overview Donut */}
+        <div className="card flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900">Inventory Overview</h3>
+            <span className="rounded-lg border border-slate-200 bg-white py-1 px-2 text-[11px] font-semibold text-slate-500">
+              Live Stock
+            </span>
           </div>
-          <div className="overflow-x-auto">
-            <table className="table-modern">
-              <thead>
-                <tr>
-                  <th>Medicine</th>
-                  <th>Reorder Level</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.lowStock.slice(0, 10).map((m) => (
-                  <tr key={m._id}>
-                    <td className="font-medium text-slate-800">{m.name}</td>
-                    <td>{m.reorderLevel} units</td>
-                    <td>
-                      <span className="badge-amber">Low stock</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          <div className="my-auto flex items-center justify-between gap-2 py-3">
+            <div className="relative h-36 w-36 shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={inventoryData.length > 0 ? inventoryData : [{ name: 'None', value: 1, color: '#f1f5f9' }]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={42}
+                    outerRadius={58}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {inventoryData.map((entry, index) => (
+                      <Cell key={`cell-inv-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-[9px] font-semibold uppercase text-slate-400">Total Meds</span>
+                <span className="text-sm font-extrabold text-slate-900">{totalInvCount}</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 text-xs flex-1 min-w-0 pr-1">
+              {inventoryData.map((inv) => (
+                <div key={inv.name} className="flex items-center justify-between gap-1 text-[11px]">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: inv.color }} />
+                    <span className="truncate text-slate-600 font-medium">{inv.name}</span>
+                  </div>
+                  <span className="font-bold text-slate-800 shrink-0">
+                    {inv.value} <span className="font-normal text-slate-400">({inv.percent})</span>
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      )}
+
+        {/* Card 2: Pending Procurement Highlight Box */}
+        <div className="card flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900">Pending Procurement</h3>
+            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-600 border border-blue-200/60">
+              Active Orders
+            </span>
+          </div>
+
+          <div className="my-auto flex flex-col items-center text-center py-2">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-md shadow-blue-500/25 mb-2">
+              <HiOutlineShoppingCart className="h-6 w-6" />
+            </div>
+            <p className="text-2xl font-black text-slate-900">{data?.openPOsCount || 0}</p>
+            <p className="text-xs font-semibold text-slate-500">Purchase Orders to receive</p>
+            <p className="mt-1 text-xs font-bold text-slate-700">
+              Total Value: ${Number(data?.openPOsValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+
+          <Link
+            to="/purchase-orders"
+            className="w-full text-center rounded-xl bg-blue-50 py-2 text-xs font-bold text-blue-600 border border-blue-200/80 hover:bg-blue-600 hover:text-white transition-all shadow-card-sm"
+          >
+            View All POs
+          </Link>
+        </div>
+
+        {/* Card 3: Batches Overview Donut */}
+        <div className="card flex flex-col justify-between md:col-span-2 xl:col-span-1">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900">Batches Overview</h3>
+            <span className="rounded-lg border border-slate-200 bg-white py-1 px-2 text-[11px] font-semibold text-slate-500">
+              Quality & Expiry
+            </span>
+          </div>
+
+          <div className="my-auto flex items-center justify-between gap-2 py-3">
+            <div className="relative h-36 w-36 shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={batchesData.length > 0 ? batchesData : [{ name: 'None', value: 1, color: '#f1f5f9' }]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={42}
+                    outerRadius={58}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {batchesData.map((entry, index) => (
+                      <Cell key={`cell-batch-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-[9px] font-semibold uppercase text-slate-400">Total Batches</span>
+                <span className="text-sm font-extrabold text-slate-900">{batchesTotal}</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 text-xs flex-1 min-w-0 pr-1">
+              {batchesData.map((b) => (
+                <div key={b.name} className="flex items-center justify-between gap-1 text-[11px]">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: b.color }} />
+                    <span className="truncate text-slate-600 font-medium">{b.name}</span>
+                  </div>
+                  <span className="font-bold text-slate-800 shrink-0">
+                    {b.value} <span className="font-normal text-slate-400">({b.percent})</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Lower Row: Team Tasks + Recent Activities ── */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+        {/* Left: Real Team Tasks / Alerts */}
+        <div className="card lg:col-span-7">
+          <div className="mb-3.5 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Pharmacy Tasks & Alerts</h3>
+              <p className="text-[11px] text-slate-400">Active operational items requiring attention</p>
+            </div>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+              {teamTasks.length} pending
+            </span>
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {teamTasks.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-400">
+                ✨ No pending alerts or review tasks. Everything is running smoothly!
+              </div>
+            ) : (
+              teamTasks.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between gap-3 py-2.5 text-xs transition-colors hover:bg-slate-50/70 rounded-lg px-1.5"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <button
+                      onClick={t.action}
+                      title={t.isAlert ? 'Click to resolve' : 'Click to view'}
+                      className="h-4 w-4 rounded-full border border-slate-300 hover:border-blue-500 flex items-center justify-center transition-colors shrink-0"
+                    >
+                      {t.done && <span className="h-2 w-2 rounded-full bg-blue-600" />}
+                    </button>
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[10px] font-bold text-blue-600 border border-blue-100">
+                      {t.avatar}
+                    </div>
+                    <span
+                      onClick={t.action}
+                      className="font-semibold truncate text-slate-800 cursor-pointer hover:text-blue-600 transition-colors"
+                    >
+                      {t.title}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="hidden sm:inline-block text-[11px] text-slate-400">{t.dept}</span>
+                    <span className="text-[11px] text-slate-500 font-medium">{t.date}</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        t.priority === 'High'
+                          ? 'bg-rose-50 text-rose-600 border border-rose-200/60'
+                          : t.priority === 'Medium'
+                          ? 'bg-amber-50 text-amber-600 border border-amber-200/60'
+                          : 'bg-emerald-50 text-emerald-600 border border-emerald-200/60'
+                      }`}
+                    >
+                      {t.priority}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Right: Real Recent Activities Feed */}
+        <div className="card lg:col-span-5">
+          <div className="mb-3.5 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900">Recent Activities</h3>
+            <Link to="/sales" className="text-xs font-semibold text-blue-600 hover:text-blue-700">
+              View All
+            </Link>
+          </div>
+
+          <div className="space-y-3">
+            {recentActivitiesList.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-400">
+                No recent activities recorded yet
+              </div>
+            ) : (
+              recentActivitiesList.map((act) => (
+                <div key={act.id} className="flex items-start gap-3 text-xs">
+                  <div
+                    className={`flex h-7 w-7 items-center justify-center rounded-full shrink-0 border ${
+                      act.type === 'sale'
+                        ? 'bg-emerald-50 text-emerald-600 border-emerald-200/60'
+                        : act.type === 'po'
+                        ? 'bg-blue-50 text-blue-600 border-blue-200/60'
+                        : 'bg-purple-50 text-purple-600 border-purple-200/60'
+                    }`}
+                  >
+                    {act.type === 'sale' ? (
+                      <HiOutlineCheckCircle className="h-4 w-4" />
+                    ) : act.type === 'po' ? (
+                      <HiOutlineShoppingCart className="h-4 w-4" />
+                    ) : (
+                      <HiOutlineUser className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-slate-800 leading-tight truncate">{act.title}</p>
+                    <p className="text-[10px] text-slate-400 truncate">{act.subtitle}</p>
+                  </div>
+                  <span className="text-[10px] font-medium text-slate-400 shrink-0">
+                    {timeAgo(act.createdAt)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Bottom: Real Top Suppliers Table ── */}
+      <div className="card overflow-x-auto">
+        <div className="mb-3.5 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">Top Suppliers</h3>
+            <p className="text-[11px] text-slate-400">Procurement partners and spending volume</p>
+          </div>
+          <Link
+            to="/suppliers"
+            className="rounded-lg border border-slate-200 bg-white py-1 px-2.5 text-[11px] font-semibold text-slate-600 hover:border-slate-300 transition-colors"
+          >
+            Manage Suppliers →
+          </Link>
+        </div>
+
+        <table className="table-modern">
+          <thead>
+            <tr>
+              <th>Supplier</th>
+              <th>Category / Type</th>
+              <th>Total Spend</th>
+              <th>Orders</th>
+              <th>Rating</th>
+            </tr>
+          </thead>
+          <tbody>
+            {topSuppliersList.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="py-6 text-center text-xs text-slate-400">
+                  No suppliers registered yet
+                </td>
+              </tr>
+            ) : (
+              topSuppliersList.map((sup, idx) => (
+                <tr key={idx}>
+                  <td className="font-semibold text-slate-900">{sup.name}</td>
+                  <td>
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                      {sup.category}
+                    </span>
+                  </td>
+                  <td className="font-bold text-slate-800">{sup.spend}</td>
+                  <td className="font-medium text-slate-600">{sup.orders}</td>
+                  <td>
+                    <div className="flex items-center gap-1 font-bold text-slate-800 text-xs">
+                      <span>{sup.rating}</span>
+                      <HiOutlineStar className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
+
+

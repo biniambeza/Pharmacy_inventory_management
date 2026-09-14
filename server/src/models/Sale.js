@@ -34,5 +34,6 @@ const saleSchema = new mongoose.Schema(
 
 saleSchema.index({ createdAt: -1 });
 saleSchema.index({ cashierId: 1, createdAt: -1 });
+saleSchema.index({ status: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Sale', saleSchema);

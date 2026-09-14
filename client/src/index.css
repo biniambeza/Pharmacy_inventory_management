@@ -29,65 +29,62 @@
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold
       transition-all duration-200 ease-out disabled:opacity-50 disabled:cursor-not-allowed
-      active:scale-[0.97];
+      active:scale-[0.98];
   }
   .btn-primary {
-    @apply btn bg-gradient-to-r from-brand-600 to-brand-500 text-white
-      shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/30
-      hover:from-brand-700 hover:to-brand-600;
+    @apply btn bg-blue-600 text-white
+      shadow-sm shadow-blue-500/25 hover:bg-blue-700 hover:shadow-md hover:shadow-blue-500/30;
   }
   .btn-secondary {
-    @apply btn bg-white text-slate-700 ring-1 ring-slate-200/80
-      hover:bg-slate-50 hover:ring-slate-300;
+    @apply btn bg-white text-slate-700 border border-slate-200
+      hover:bg-slate-50 hover:border-slate-300 shadow-sm;
   }
   .btn-danger {
-    @apply btn bg-gradient-to-r from-rose-600 to-rose-500 text-white
-      shadow-md shadow-rose-500/20 hover:shadow-lg hover:shadow-rose-500/30
-      hover:from-rose-700 hover:to-rose-600;
+    @apply btn bg-rose-600 text-white
+      shadow-sm shadow-rose-500/20 hover:bg-rose-700 hover:shadow-md;
   }
   .btn-ghost {
     @apply btn bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900;
   }
   .input {
-    @apply w-full rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 text-sm
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-800
       outline-none transition-all duration-200
       placeholder:text-slate-400
-      focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20
+      focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15
       hover:border-slate-300;
   }
   .card {
-    @apply rounded-2xl bg-white p-6 shadow-card ring-1 ring-slate-900/[0.04]
-      transition-all duration-300
-      hover:shadow-card-hover;
+    @apply rounded-2xl bg-white p-5 border border-slate-100/90 shadow-card
+      transition-all duration-200 hover:shadow-card-hover;
   }
   .card-static {
-    @apply rounded-2xl bg-white p-6 shadow-card ring-1 ring-slate-900/[0.04];
+    @apply rounded-2xl bg-white p-5 border border-slate-100/90 shadow-card;
   }
   .label {
     @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500;
   }
   .badge {
-    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide;
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold tracking-wide;
   }
   .badge-green {
-    @apply badge bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/10;
+    @apply badge bg-emerald-50 text-emerald-700 border border-emerald-200/60;
   }
   .badge-amber {
-    @apply badge bg-amber-50 text-amber-700 ring-1 ring-amber-600/10;
+    @apply badge bg-amber-50 text-amber-700 border border-amber-200/60;
   }
   .badge-rose {
-    @apply badge bg-rose-50 text-rose-700 ring-1 ring-rose-600/10;
+    @apply badge bg-rose-50 text-rose-700 border border-rose-200/60;
   }
   .badge-blue {
-    @apply badge bg-sky-50 text-sky-700 ring-1 ring-sky-600/10;
+    @apply badge bg-blue-50 text-blue-700 border border-blue-200/60;
   }
   .badge-violet {
-    @apply badge bg-violet-50 text-violet-700 ring-1 ring-violet-600/10;
+    @apply badge bg-purple-50 text-purple-700 border border-purple-200/60;
   }
   .badge-slate {
-    @apply badge bg-slate-100 text-slate-600 ring-1 ring-slate-900/5;
+    @apply badge bg-slate-100 text-slate-600 border border-slate-200/60;
   }
 
   /* Table styling */
@@ -95,26 +92,55 @@
     @apply w-full text-left text-sm;
   }
   .table-modern thead {
-    @apply border-b border-slate-100;
+    @apply border-b border-slate-100 bg-slate-50/50;
   }
   .table-modern th {
     @apply py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500;
   }
   .table-modern td {
-    @apply py-3 px-4;
+    @apply py-3 px-4 text-slate-700;
   }
   .table-modern tbody tr {
-    @apply border-b border-slate-50 transition-colors duration-150 hover:bg-slate-50/50;
+    @apply border-b border-slate-100/60 transition-colors duration-150 hover:bg-slate-50/60;
   }
 
   /* Page header */
   .page-header {
-    @apply mb-8;
+    @apply mb-6;
   }
   .page-title {
     @apply text-2xl font-bold text-slate-900 tracking-tight;
   }
   .page-subtitle {
     @apply mt-1 text-sm text-slate-500;
+  }
+
+  /* Stat card with left accent */
+  .stat-card {
+    @apply relative rounded-2xl bg-white p-5 border border-slate-100 shadow-card
+      transition-all duration-200 hover:shadow-card-hover overflow-hidden;
+  }
+
+  /* Quick action card */
+  .quick-action-card {
+    @apply flex items-center gap-3.5 rounded-xl bg-white px-4 py-3 border border-slate-100 shadow-card
+      cursor-pointer transition-all duration-200 hover:shadow-card-hover hover:border-slate-200
+      active:scale-[0.98];
+  }
+
+  /* Alert list item */
+  .alert-item {
+    @apply flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-slate-50;
+  }
+
+  /* Chart period pills */
+  .period-pill {
+    @apply rounded-lg px-3 py-1 text-xs font-semibold cursor-pointer transition-all duration-150;
+  }
+  .period-pill-active {
+    @apply period-pill bg-blue-600 text-white shadow-sm;
+  }
+  .period-pill-inactive {
+    @apply period-pill bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800;
   }
 }
