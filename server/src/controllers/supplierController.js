@@ -22,6 +22,12 @@ exports.updateSupplier = asyncHandler(async (req, res) => {
   res.json({ success: true, data: supplier });
 });
 
+exports.deleteSupplier = asyncHandler(async (req, res) => {
+  const supplier = await Supplier.findByIdAndDelete(req.params.id);
+  if (!supplier) throw new AppError('Supplier not found', 404);
+  res.json({ success: true, message: 'Supplier deleted successfully' });
+});
+
 exports.listPOs = asyncHandler(async (req, res) => {
   const data = await PurchaseOrder.find()
     .populate('supplierId', 'name contact')

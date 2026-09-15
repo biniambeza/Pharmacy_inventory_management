@@ -8,7 +8,8 @@ const router = express.Router();
 router.use(protect);
 
 router.get('/', ctrl.listSuppliers);
-router.post('/', authorize('admin', 'pharmacist'), validate(supplierSchema), ctrl.createSupplier);
-router.put('/:id', authorize('admin', 'pharmacist'), validate(supplierSchema), ctrl.updateSupplier);
+router.post('/', authorize('admin'), validate(supplierSchema), ctrl.createSupplier);
+router.put('/:id', authorize('admin'), validate(supplierSchema), ctrl.updateSupplier);
+router.delete('/:id', authorize('admin'), ctrl.deleteSupplier);
 
 module.exports = router;

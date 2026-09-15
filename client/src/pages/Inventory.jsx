@@ -7,8 +7,10 @@ import {
   HiOutlineX,
   HiOutlineEye,
   HiOutlineExclamation,
+  HiOutlineTrash,
 } from 'react-icons/hi';
 import api from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 const emptyMed = {
   name: '',
@@ -22,6 +24,10 @@ const emptyMed = {
 };
 
 export default function Inventory() {
+  const { user } = useAuth();
+  const canEdit = ['admin', 'pharmacist'].includes(user?.role);
+  const isAdmin = user?.role === 'admin';
+
   const [medicines, setMedicines] = useState([]);
   const [q, setQ] = useState('');
   const [form, setForm] = useState(emptyMed);
@@ -83,6 +89,17 @@ export default function Inventory() {
     setSelected(r.data.data);
   };
 
+  const deleteMed = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this medicine?')) return;
+    try {
+      await api.delete(`/medicines/${id}`);
+      await load();
+      if (selected?._id === id) setSelected(null);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Delete failed');
+    }
+  };
+
   const low = useMemo(() => medicines.filter((m) => m.stock <= m.reorderLevel).length, [medicines]);
 
   return (
@@ -116,9 +133,9 @@ export default function Inventory() {
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-3">
+      <div className={`grid gap-6 ${canEdit ? 'xl:grid-cols-3' : 'grid-cols-1'}`}>
         {/* Table */}
-        <div className="card xl:col-span-2 overflow-x-auto">
+        <div className={`card overflow-x-auto ${canEdit ? 'xl:col-span-2' : 'col-span-1'}`}>
           <table className="table-modern">
             <thead>
               <tr>
@@ -162,26 +179,37 @@ export default function Inventory() {
                       >
                         <HiOutlineEye className="h-4 w-4" />
                       </button>
-                      <button
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-brand-50 hover:text-brand-600 transition-colors"
-                        title="Edit"
-                        onClick={() => {
-                          setEditing(m._id);
-                          setForm({
-                            name: m.name,
-                            genericName: m.genericName,
-                            category: m.category,
-                            manufacturer: m.manufacturer,
-                            unit: m.unit,
-                            price: m.price,
-                            reorderLevel: m.reorderLevel,
-                            requiresPrescription: m.requiresPrescription,
-                            isActive: m.isActive,
-                          });
-                        }}
-                      >
-                        <HiOutlinePencil className="h-4 w-4" />
-                      </button>
+                      {canEdit && (
+                        <button
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-brand-50 hover:text-brand-600 transition-colors"
+                          title="Edit"
+                          onClick={() => {
+                            setEditing(m._id);
+                            setForm({
+                              name: m.name,
+                              genericName: m.genericName,
+                              category: m.category,
+                              manufacturer: m.manufacturer,
+                              unit: m.unit,
+                              price: m.price,
+                              reorderLevel: m.reorderLevel,
+                              requiresPrescription: m.requiresPrescription,
+                              isActive: m.isActive,
+                            });
+                          }}
+                        >
+                          <HiOutlinePencil className="h-4 w-4" />
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                          title="Delete"
+                          onClick={() => deleteMed(m._id)}
+                        >
+                          <HiOutlineTrash className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -195,9 +223,10 @@ export default function Inventory() {
           </table>
         </div>
 
-        {/* Forms sidebar */}
-        <div className="space-y-4">
-          <form className="card space-y-3" onSubmit={submitMed}>
+        {/* Forms sidebar - Pharmacist & Admin only */}
+        {canEdit && (
+          <div className="space-y-4">
+            <form className="card space-y-3" onSubmit={submitMed}>
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-slate-900 flex items-center gap-2">
                 {editing ? <HiOutlinePencil className="h-4 w-4 text-brand-500" /> : <HiOutlinePlus className="h-4 w-4 text-brand-500" />}
@@ -284,6 +313,7 @@ export default function Inventory() {
             <button className="btn-primary w-full">Create batch</button>
           </form>
         </div>
+        )}
       </div>
 
       {/* Batch detail modal */}

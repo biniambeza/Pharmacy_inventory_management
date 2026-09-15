@@ -11,6 +11,6 @@ router.get('/', ctrl.listMedicines);
 router.get('/:id', ctrl.getMedicine);
 router.post('/', authorize('admin', 'pharmacist'), validate(medicineSchema), ctrl.createMedicine);
 router.put('/:id', authorize('admin', 'pharmacist'), validate(medicineSchema), ctrl.updateMedicine);
-router.delete('/:id', authorize('admin', 'pharmacist'), ctrl.deleteMedicine);
+router.delete('/:id', authorize('admin'), ctrl.deleteMedicine);
 
 module.exports = router;

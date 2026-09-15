@@ -241,6 +241,7 @@ export default function Login() {
                 { label: 'Admin', email: 'admin@pharmacy.com', color: 'from-violet-500 to-purple-600', badge: 'bg-violet-100 text-violet-700' },
                 { label: 'Pharmacist', email: 'pharmacist@pharmacy.com', color: 'from-sky-500 to-blue-600', badge: 'bg-sky-100 text-sky-700' },
                 { label: 'Cashier', email: 'cashier@pharmacy.com', color: 'from-amber-500 to-orange-500', badge: 'bg-amber-100 text-amber-700' },
+                { label: 'Supplier', email: 'supplier@pharmacy.com', color: 'from-emerald-500 to-teal-600', badge: 'bg-emerald-100 text-emerald-700' },
               ].map((d) => (
                 <button
                   key={d.email}

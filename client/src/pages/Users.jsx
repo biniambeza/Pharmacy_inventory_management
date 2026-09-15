@@ -12,12 +12,14 @@ const roleBadge = {
   admin: 'bg-violet-50 text-violet-700 ring-1 ring-violet-600/10',
   pharmacist: 'bg-sky-50 text-sky-700 ring-1 ring-sky-600/10',
   cashier: 'bg-amber-50 text-amber-700 ring-1 ring-amber-600/10',
+  supplier: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/10',
 };
 
 const roleAvatar = {
   admin: 'from-violet-500 to-purple-600',
   pharmacist: 'from-sky-500 to-blue-600',
   cashier: 'from-amber-500 to-orange-500',
+  supplier: 'from-emerald-500 to-teal-600',
 };
 
 export default function Users() {
@@ -131,8 +133,8 @@ export default function Users() {
           </div>
           <div>
             <label className="label">Role</label>
-            <div className="grid grid-cols-3 gap-2">
-              {['admin', 'pharmacist', 'cashier'].map((r) => (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {['admin', 'pharmacist', 'cashier', 'supplier'].map((r) => (
                 <button
                   key={r}
                   type="button"

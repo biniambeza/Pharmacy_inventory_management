@@ -23,11 +23,11 @@ import { useAuth } from '../context/AuthContext';
 const links = [
   { to: '/', label: 'Overview', icon: HiOutlineHome, roles: ['admin', 'pharmacist', 'cashier'] },
   { to: '/pos', label: 'Point of Sale', icon: HiOutlineShoppingCart, roles: ['admin', 'pharmacist', 'cashier'] },
-  { to: '/inventory', label: 'Inventory', icon: HiOutlineCube, roles: ['admin', 'pharmacist'] },
+  { to: '/inventory', label: 'Inventory', icon: HiOutlineCube, roles: ['admin', 'pharmacist', 'cashier'] },
   { to: '/purchase-orders', label: 'Procurement', icon: HiOutlineClipboardList, roles: ['admin', 'pharmacist'] },
   { to: '/suppliers', label: 'Suppliers', icon: HiOutlineTruck, roles: ['admin', 'pharmacist'] },
   { to: '/sales', label: 'Sales History', icon: HiOutlineCurrencyDollar, roles: ['admin', 'pharmacist', 'cashier'] },
-  { to: '/reports', label: 'Reports', icon: HiOutlineChartBar, roles: ['admin', 'pharmacist'] },
+  { to: '/reports', label: 'Reports', icon: HiOutlineChartBar, roles: ['admin'] },
   { to: '/users', label: 'Users & Roles', icon: HiOutlineUsers, roles: ['admin'] },
 ];
 
@@ -35,6 +35,7 @@ const roleLabel = {
   admin: 'Admin',
   pharmacist: 'Pharmacist',
   cashier: 'Cashier',
+  supplier: 'Supplier',
 };
 
 export default function Layout() {
@@ -120,20 +121,24 @@ export default function Layout() {
               <HiOutlineShoppingCart className="h-3.5 w-3.5 text-blue-500" />
               <span>Create Sale (POS)</span>
             </button>
-            <button
-              onClick={() => { navigate('/inventory'); setMobileOpen(false); }}
-              className="flex items-center gap-2 rounded-lg bg-white px-2.5 py-2 text-xs font-medium text-slate-700 border border-slate-200/80 shadow-card-sm hover:border-blue-300 hover:text-blue-600 transition-colors text-left"
-            >
-              <HiOutlinePlusCircle className="h-3.5 w-3.5 text-emerald-500" />
-              <span>Add Medicine</span>
-            </button>
-            <button
-              onClick={() => { navigate('/purchase-orders'); setMobileOpen(false); }}
-              className="flex items-center gap-2 rounded-lg bg-white px-2.5 py-2 text-xs font-medium text-slate-700 border border-slate-200/80 shadow-card-sm hover:border-blue-300 hover:text-blue-600 transition-colors text-left"
-            >
-              <HiOutlineClipboardList className="h-3.5 w-3.5 text-purple-500" />
-              <span>New Purchase Order</span>
-            </button>
+            {['admin', 'pharmacist'].includes(user.role) && (
+              <>
+                <button
+                  onClick={() => { navigate('/inventory'); setMobileOpen(false); }}
+                  className="flex items-center gap-2 rounded-lg bg-white px-2.5 py-2 text-xs font-medium text-slate-700 border border-slate-200/80 shadow-card-sm hover:border-blue-300 hover:text-blue-600 transition-colors text-left"
+                >
+                  <HiOutlinePlusCircle className="h-3.5 w-3.5 text-emerald-500" />
+                  <span>Add Medicine</span>
+                </button>
+                <button
+                  onClick={() => { navigate('/purchase-orders'); setMobileOpen(false); }}
+                  className="flex items-center gap-2 rounded-lg bg-white px-2.5 py-2 text-xs font-medium text-slate-700 border border-slate-200/80 shadow-card-sm hover:border-blue-300 hover:text-blue-600 transition-colors text-left"
+                >
+                  <HiOutlineClipboardList className="h-3.5 w-3.5 text-purple-500" />
+                  <span>New Purchase Order</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 

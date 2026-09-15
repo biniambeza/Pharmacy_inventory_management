@@ -42,7 +42,7 @@ export default function App() {
         <Route
           path="inventory"
           element={
-            <ProtectedRoute roles={['admin', 'pharmacist']}>
+            <ProtectedRoute roles={['admin', 'pharmacist', 'cashier']}>
               <Suspense fallback={<PageLoader />}><Inventory /></Suspense>
             </ProtectedRoute>
           }
@@ -67,7 +67,7 @@ export default function App() {
         <Route
           path="reports"
           element={
-            <ProtectedRoute roles={['admin', 'pharmacist']}>
+            <ProtectedRoute roles={['admin']}>
               <Suspense fallback={<PageLoader />}><Reports /></Suspense>
             </ProtectedRoute>
           }

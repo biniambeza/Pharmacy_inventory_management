@@ -7,12 +7,16 @@ import {
   HiOutlineMail,
   HiOutlineLocationMarker,
   HiOutlineX,
+  HiOutlineTrash,
 } from 'react-icons/hi';
 import api from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 const empty = { name: '', contact: '', address: '', email: '' };
 
 export default function Suppliers() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [list, setList] = useState([]);
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
@@ -36,6 +40,16 @@ export default function Suppliers() {
     }
   };
 
+  const remove = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this supplier?')) return;
+    try {
+      await api.delete(`/suppliers/${id}`);
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Delete failed');
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
@@ -52,11 +66,11 @@ export default function Suppliers() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className={`grid gap-6 ${isAdmin ? 'lg:grid-cols-3' : 'grid-cols-1'}`}>
         {/* Supplier cards grid */}
-        <div className="lg:col-span-2">
+        <div className={isAdmin ? 'lg:col-span-2' : 'col-span-1'}>
           {list.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className={`grid gap-4 ${isAdmin ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3'}`}>
               {list.map((s) => (
                 <div key={s._id} className="card group">
                   <div className="flex items-start justify-between">
@@ -74,15 +88,27 @@ export default function Suppliers() {
                         )}
                       </div>
                     </div>
-                    <button
-                      className="rounded-lg p-1.5 text-slate-400 opacity-0 transition-all group-hover:opacity-100 hover:bg-brand-50 hover:text-brand-600"
-                      onClick={() => {
-                        setEditing(s._id);
-                        setForm({ name: s.name, contact: s.contact, address: s.address, email: s.email || '' });
-                      }}
-                    >
-                      <HiOutlinePencil className="h-4 w-4" />
-                    </button>
+                    {isAdmin && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          className="rounded-lg p-1.5 text-slate-400 opacity-0 transition-all group-hover:opacity-100 hover:bg-brand-50 hover:text-brand-600"
+                          title="Edit supplier"
+                          onClick={() => {
+                            setEditing(s._id);
+                            setForm({ name: s.name, contact: s.contact, address: s.address, email: s.email || '' });
+                          }}
+                        >
+                          <HiOutlinePencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          className="rounded-lg p-1.5 text-slate-400 opacity-0 transition-all group-hover:opacity-100 hover:bg-rose-50 hover:text-rose-600"
+                          title="Delete supplier"
+                          onClick={() => remove(s._id)}
+                        >
+                          <HiOutlineTrash className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div className="mt-3 space-y-1.5 text-sm text-slate-500">
                     <p className="flex items-center gap-2">
@@ -105,31 +131,32 @@ export default function Suppliers() {
           )}
         </div>
 
-        {/* Form */}
-        <form className="card space-y-3 self-start" onSubmit={save}>
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-              {editing ? <HiOutlinePencil className="h-4 w-4 text-brand-500" /> : <HiOutlinePlus className="h-4 w-4 text-brand-500" />}
-              {editing ? 'Edit supplier' : 'Add supplier'}
-            </h3>
-            {editing && (
-              <button
-                type="button"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                onClick={() => { setEditing(null); setForm(empty); }}
-              >
-                <HiOutlineX className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-          <div>
-            <label className="label">Name</label>
-            <input className="input" placeholder="Supplier name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          </div>
-          <div>
-            <label className="label">Contact</label>
-            <input className="input" placeholder="Phone number" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} required />
-          </div>
+        {/* Form - Admin Only */}
+        {isAdmin && (
+          <form className="card space-y-3 self-start" onSubmit={save}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                {editing ? <HiOutlinePencil className="h-4 w-4 text-brand-500" /> : <HiOutlinePlus className="h-4 w-4 text-brand-500" />}
+                {editing ? 'Edit supplier' : 'Add supplier'}
+              </h3>
+              {editing && (
+                <button
+                  type="button"
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  onClick={() => { setEditing(null); setForm(empty); }}
+                >
+                  <HiOutlineX className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <div>
+              <label className="label">Name</label>
+              <input className="input" placeholder="Supplier name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            </div>
+            <div>
+              <label className="label">Contact</label>
+              <input className="input" placeholder="Phone number" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} required />
+            </div>
           <div>
             <label className="label">Address</label>
             <input className="input" placeholder="Street address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} required />
@@ -140,6 +167,7 @@ export default function Suppliers() {
           </div>
           <button className="btn-primary w-full">{editing ? 'Update' : 'Create'}</button>
         </form>
+        )}
       </div>
     </div>
   );

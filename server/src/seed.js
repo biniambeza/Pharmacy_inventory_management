@@ -25,10 +25,11 @@ const seedDatabase = async ({ reset = true } = {}) => {
   ]);
 
   const passwordHash = await User.hashPassword('Password123!');
-  const [admin, pharmacist, cashier] = await User.create([
+  const [admin, pharmacist, cashier, supplier] = await User.create([
     { name: 'Ada Admin', email: 'admin@pharmacy.com', passwordHash, role: 'admin' },
     { name: 'Phil Pharmacist', email: 'pharmacist@pharmacy.com', passwordHash, role: 'pharmacist' },
     { name: 'Casey Cashier', email: 'cashier@pharmacy.com', passwordHash, role: 'cashier' },
+    { name: 'Sam Supplier', email: 'supplier@pharmacy.com', passwordHash, role: 'supplier' },
   ]);
 
   const suppliers = await Supplier.create([
